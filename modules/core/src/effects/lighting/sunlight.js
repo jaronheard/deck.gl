@@ -1,121 +1,110 @@
 import {DirectionalLight} from '@luma.gl/core';
 
-const DAY_IN_MS = 864e5;
-const RADIAN_PER_DEGREE = Math.PI / 180;
+// sun position calculations are based on http://aa.quae.nl/en/reken/zonpositie.html formulas
+// based on https://github.com/mourner/suncalc/blob/master/suncalc.js
+const PI = Math.PI;
+const sin = Math.sin;
+const cos = Math.cos;
+const tan = Math.tan;
+const asin = Math.asin;
+const atan = Math.atan2;
+const rad = PI / 180;
 
-function getDayOfYear(timestamp) {
-  const date = new Date(timestamp);
-  const start = new Date(date.getFullYear(), 0, 0);
-  const diff = timestamp - start.getTime();
-  return Math.floor(diff / DAY_IN_MS);
+const DAY_IN_MS = 1000 * 60 * 60 * 24;
+const J1970 = 2440588;
+const J2000 = 2451545;
+const e = rad * 23.4397; // obliquity of the Earth
+
+function toJulian(timestamp) {
+  return timestamp / DAY_IN_MS - 0.5 + J1970;
 }
 
-function sin(degrees) {
-  return Math.sin(degrees * RADIAN_PER_DEGREE);
+function toDays(timestamp) {
+  return toJulian(timestamp) - J2000;
 }
 
-function cos(degrees) {
-  return Math.cos(degrees * RADIAN_PER_DEGREE);
+function getRightAscension(eclipticLongitude, b) {
+  const lambda = eclipticLongitude;
+  return atan(sin(lambda) * cos(e) - tan(b) * sin(e), cos(lambda));
 }
 
-// degrees
-function acos(val) {
-  return Math.acos(val) / RADIAN_PER_DEGREE;
+function getDeclination(eclipticLongitude, b) {
+  const lambda = eclipticLongitude;
+  return asin(sin(b) * cos(e) + cos(b) * sin(e) * sin(lambda));
 }
 
-// degrees
-function asin(val) {
-  return Math.asin(val) / RADIAN_PER_DEGREE;
+function getAzimuth(hourAngle, latitudeInRadians, declination) {
+  const H = hourAngle;
+  const phi = latitudeInRadians;
+  const delta = declination;
+  return atan(sin(H), cos(H) * sin(phi) - tan(delta) * cos(phi));
 }
 
-// LST: Local Solar Time (hr)
-// LS: Local Time (hr)
-// LSTM: Local Standard Time Meridian (hr)
-// EoT: Equation of Time (min)
-// TC: Time Correction Factor
-// https://www.pveducation.org/pvcdrom/properties-of-sunlight/solar-time
-function getLST(longitude, dateOfYear, timestamp) {
-  const date = new Date(timestamp);
-  const timezoneOffsetMinutes = -date.getTimezoneOffset();
-  const delta_T_UTC = Math.floor(timezoneOffsetMinutes / 60);
-  const LSTM = 15 * delta_T_UTC;
-
-  const B = (360 / 365) * (dateOfYear - 81);
-  const EoT = 9.87 * sin(2 * B) - 7.53 * cos(B) - 1.5 * sin(B);
-
-  const LT = date.getHours() + date.getMinutes() / 60;
-  const TC = 4 * (longitude - LSTM) + EoT;
-
-  const LST = LT + TC / 60;
-
-  return LST;
+function getAltitude(hourAngle, latitudeInRadians, declination) {
+  const H = hourAngle;
+  const phi = latitudeInRadians;
+  const delta = declination;
+  return asin(sin(phi) * sin(delta) + cos(phi) * cos(delta) * cos(H));
 }
 
-// HRA: Hour Angle
-function getHRA(LST) {
-  return 15 * (LST - 12);
+function getSiderealTime(dates, lw) {
+  return rad * (280.16 + 360.9856235 * dates) - lw;
 }
 
-// alpha
-function getElevationAngle({latitude, declinationAngle, HRA}) {
-  // asin(sin_delta * sin_phi + cos_delta * cos_phi * cos_HRA)
-  const delta = declinationAngle;
-  const phi = latitude;
-  return asin(sin(delta) * sin(phi) + cos(delta) * cos(phi) * cos(HRA));
+function getSolarMeanAnomaly(days) {
+  return rad * (357.5291 + 0.98560028 * days);
 }
 
-// delta
-function getDeclinationAngle(dateOfYear) {
-  return 23.45 * sin((360 / 365) * (dateOfYear + 284));
+function getEclipticLongitude(meanAnomaly) {
+  const M = meanAnomaly;
+  // equation of center
+  const C = rad * (1.9148 * sin(M) + 0.02 * sin(2 * M) + 0.0003 * sin(3 * M));
+  // perihelion of the Earth
+  const P = rad * 102.9372;
+
+  return M + C + P + PI;
 }
 
-// https://www.pveducation.org/pvcdrom/properties-of-sunlight/azimuth-angle
-function getAzimuthAngle({latitude, declinationAngle, elevationAngle, HRA, LST}) {
-  // acos(sin(delta) * cos(phi) - cos(delta) * sin(phi) * cos(HRA)) / cos(alpha)
-  const delta = declinationAngle;
-  const phi = latitude;
-  const alpha = elevationAngle;
-  const azi = acos(sin(delta) * cos(phi) - cos(delta) * sin(phi) * cos(HRA)) / cos(alpha);
+function getSunCoords(dates) {
+  const M = getSolarMeanAnomaly(dates);
+  const L = getEclipticLongitude(M);
 
-  if (LST < 12 || HRA < 0) {
-    return azi;
-  }
+  return {
+    declination: getDeclination(L, 0),
+    rightAscension: getRightAscension(L, 0)
+  };
+}
 
-  return 360 - azi;
+export function getSolarPosition(timestamp, latitude, longitude) {
+  const lw = rad * -longitude;
+  const phi = rad * latitude;
+  const d = toDays(timestamp);
+
+  const c = getSunCoords(d);
+  // hour angle
+  const H = getSiderealTime(d, lw) - c.rightAscension;
+
+  // https://www.aa.quae.nl/en/reken/zonpositie.html
+  // The altitude is 0° at the horizon, +90° in the zenith (straight over your head), and −90° in the nadir (straight down).
+  // The azimuth is the direction along the horizon, which we measure from south to west.
+  // South has azimuth 0°, west +90°, north +180°, and east +270° (or −90°, that's the same thing).
+  return {
+    azimuth: getAzimuth(H, phi, c.declination),
+    altitude: getAltitude(H, phi, c.declination)
+  };
 }
 
 export default class Sunlight extends DirectionalLight {
   constructor({latitude, longitude, timestamp, ...others}) {
     super(others);
-    // phi
-    this.elevationAngle = null;
-    this.azimuthAngle = null;
 
-    this.setProps({latitude, longitude, timestamp});
-  }
+    // for debugging
+    this._azimuthAngle = null;
+    this._altitudeAngle = null;
 
-  get elevation() {
-    return this.elevationAngle;
-  }
-
-  get azimuth() {
-    return this.azimuthAngle;
-  }
-
-  getDirection() {
-    const dateOfYear = getDayOfYear(this.timestamp);
-    const LST = getLST(this.longitude, dateOfYear, this.timestamp);
-    const HRA = getHRA(LST);
-    const latitude = this.latitude;
-
-    const declinationAngle = getDeclinationAngle(dateOfYear);
-    const elevationAngle = getElevationAngle({latitude, declinationAngle, HRA});
-    const azimuthAngle = getAzimuthAngle({latitude, declinationAngle, elevationAngle, HRA, LST});
-
-    this.elevationAngle = elevationAngle;
-    this.azimuthAngle = azimuthAngle;
-
-    return [cos(this.azimuthAngle), sin(this.azimuthAngle), sin(this.elevationAngle)];
+    if (latitude && longitude && timestamp) {
+      this.setProps({latitude, longitude, timestamp});
+    }
   }
 
   setProps(props) {
@@ -131,6 +120,19 @@ export default class Sunlight extends DirectionalLight {
       this.timestamp = props.timestamp;
     }
 
-    this.direction = this.getDirection();
+    this.direction = this._getDirection();
+  }
+
+  _getDirection() {
+    const {azimuth, altitude} = getSolarPosition(this.timestamp, this.latitude, this.longitude);
+    // convert azimuth from 0 at south to be 0 at north
+    const azimuthN = azimuth + PI;
+
+    // for debugging
+    this._azimuthAngle = azimuthN / rad;
+    this._altitudeAngle = altitude / rad;
+
+    // solar position to light direction
+    return [-sin(azimuthN), -cos(azimuthN), -sin(altitude)];
   }
 }

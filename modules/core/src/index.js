@@ -30,7 +30,7 @@ export {COORDINATE_SYSTEM} from './lib/constants';
 
 // Effects
 export {default as LightingEffect} from './effects/lighting-effect';
-import {default as Sunlight} from './effects/lighting/sunlight';
+import Sunlight, {getSolarPosition} from './effects/lighting/sunlight';
 
 // Experimental Pure JS (non-React) bindings
 export {default as Deck} from './lib/deck';
@@ -90,6 +90,7 @@ export {AmbientLight, PointLight, DirectionalLight} from '@luma.gl/core';
 // Experimental Features may change in minor version bumps, use at your own risk)
 export const experimental = {
   Sunlight,
+  getSolarPosition,
   Tesselator,
   flattenVertices,
   fillArray,

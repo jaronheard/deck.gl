@@ -1,8 +1,12 @@
+/* global setInterval */
 import React, {Component} from 'react';
 import {render} from 'react-dom';
 import {StaticMap} from 'react-map-gl';
 import DeckGL, {GeoJsonLayer} from 'deck.gl';
 import {scaleThreshold} from 'd3-scale';
+import {LightingEffect, experimental} from '@deck.gl/core';
+import {PhongMaterial} from '@luma.gl/core';
+const {Sunlight} = experimental;
 
 // Set your mapbox token here
 const MAPBOX_TOKEN = process.env.MapboxAccessToken; // eslint-disable-line
@@ -10,6 +14,11 @@ const MAPBOX_TOKEN = process.env.MapboxAccessToken; // eslint-disable-line
 // Source data GeoJSON
 const DATA_URL =
   'https://raw.githubusercontent.com/uber-common/deck.gl-data/master/examples/geojson/vancouver-blocks.json'; // eslint-disable-line
+
+const MS_A_HOUR = 3.6e6;
+
+let START_TIMESTAMP = 1553990400000; // 03/31/2019 @ 12:00am (UTC)
+START_TIMESTAMP += 7 * MS_A_HOUR; // Vancouver GMT-7
 
 export const COLOR_SCALE = scaleThreshold()
   .domain([-0.6, -0.45, -0.3, -0.15, 0, 0.15, 0.3, 0.45, 0.6, 0.75, 0.9, 1.05, 1.2])
@@ -39,15 +48,44 @@ export const INITIAL_VIEW_STATE = {
   bearing: 0
 };
 
+const sunLight = new Sunlight({
+  latitude: INITIAL_VIEW_STATE.latitude,
+  longitude: INITIAL_VIEW_STATE.longitude,
+  timestamp: START_TIMESTAMP
+});
+
+const material = new PhongMaterial({
+  ambient: 0.64,
+  diffuse: 0.6,
+  shininess: 32,
+  specularColor: [51, 51, 51]
+});
+
 export class App extends Component {
   constructor(props) {
     super(props);
 
     this.state = {
+      viewState: INITIAL_VIEW_STATE,
+      hour: 0,
+      lightingEffect: new LightingEffect({sunLight}),
       hoveredObject: null
     };
+
+    this._getLightingEffect = this._getLightingEffect.bind(this);
+    this._onViewStateChange = this._onViewStateChange.bind(this);
     this._onHover = this._onHover.bind(this);
     this._renderTooltip = this._renderTooltip.bind(this);
+  }
+
+  componentDidMount() {
+    setInterval(() => {
+      this.setState({hour: (this.state.hour + 1) % 24});
+    }, 500);
+  }
+
+  _onViewStateChange({viewState}) {
+    this.setState({viewState});
   }
 
   _onHover({x, y, object}) {
@@ -71,7 +109,8 @@ export class App extends Component {
         getFillColor: f => COLOR_SCALE(f.properties.growth),
         getLineColor: [255, 255, 255],
         pickable: true,
-        onHover: this._onHover
+        onHover: this._onHover,
+        material
       })
     ];
   }
@@ -99,8 +138,18 @@ export class App extends Component {
     );
   }
 
+  _getLightingEffect() {
+    const {longitude, latitude} = this.state.viewState;
+    const {hour} = this.state;
+    sunLight.setProps({latitude, longitude, timestamp: START_TIMESTAMP + hour * MS_A_HOUR});
+    // eslint-disable-next-line no-console, no-undef
+    console.log(`${hour}:00 azimuth: ${sunLight._azimuthAngle}`);
+    return new LightingEffect({sunLight});
+  }
+
   render() {
     const {viewState, controller = true, baseMap = true} = this.props;
+    const lightingEffect = this._getLightingEffect();
 
     return (
       <DeckGL
@@ -108,6 +157,8 @@ export class App extends Component {
         initialViewState={INITIAL_VIEW_STATE}
         viewState={viewState}
         controller={controller}
+        effects={[lightingEffect]}
+        onViewStateChange={this._onViewStateChange}
       >
         {baseMap && (
           <StaticMap
