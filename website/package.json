@@ -45,7 +45,7 @@
   "devDependencies": {
     "autoprefixer-loader": "^3.2.0",
     "@babel/cli": "^7.0.0",
-    "@babel/core": "^7.0.0",test/modules/core/index.js
+    "@babel/core": "^7.0.0",
     "babel-eslint": "^7.0.0",
     "babel-loader": "^8.0.0",
     "@babel/plugin-proposal-class-properties": "^7.0.0",
