@@ -11,16 +11,18 @@ const atan = Math.atan2;
 const rad = PI / 180;
 
 const DAY_IN_MS = 1000 * 60 * 60 * 24;
-const J1970 = 2440588;
-const J2000 = 2451545;
+const JD1970 = 2440588; // Julian Day year 1970
+const JD2000 = 2451545; // Julian Day year 2000
+
+// This angle ε [epsilon] is called the obliquity of the ecliptic and its value at the beginning of 2000 was 23.4397°
 const e = rad * 23.4397; // obliquity of the Earth
 
-function toJulian(timestamp) {
-  return timestamp / DAY_IN_MS - 0.5 + J1970;
+function toJulianDay(timestamp) {
+  return timestamp / DAY_IN_MS - 0.5 + JD1970;
 }
 
 function toDays(timestamp) {
-  return toJulian(timestamp) - J2000;
+  return toJulianDay(timestamp) - JD2000;
 }
 
 function getRightAscension(eclipticLongitude, b) {
@@ -47,8 +49,9 @@ function getAltitude(hourAngle, latitudeInRadians, declination) {
   return asin(sin(phi) * sin(delta) + cos(phi) * cos(delta) * cos(H));
 }
 
-function getSiderealTime(dates, lw) {
-  return rad * (280.16 + 360.9856235 * dates) - lw;
+// https://www.aa.quae.nl/en/reken/zonpositie.html
+function getSiderealTime(dates, longitudeWestInRadians) {
+  return rad * (280.147 + 360.9856235 * dates) - longitudeWestInRadians;
 }
 
 function getSolarMeanAnomaly(days) {
@@ -76,13 +79,13 @@ function getSunCoords(dates) {
 }
 
 export function getSolarPosition(timestamp, latitude, longitude) {
-  const lw = rad * -longitude;
+  const longitudeWestInRadians = rad * -longitude;
   const phi = rad * latitude;
   const d = toDays(timestamp);
 
   const c = getSunCoords(d);
   // hour angle
-  const H = getSiderealTime(d, lw) - c.rightAscension;
+  const H = getSiderealTime(d, longitudeWestInRadians) - c.rightAscension;
 
   // https://www.aa.quae.nl/en/reken/zonpositie.html
   // The altitude is 0° at the horizon, +90° in the zenith (straight over your head), and −90° in the nadir (straight down).

@@ -3,7 +3,7 @@ import {getSolarPosition} from '@deck.gl/core/effects/lighting/sunlight';
 
 const MS_A_HOUR = 3.6e6;
 
-function almostEqual(v1, v2, epsilon = 1) {
+function almostEqual(v1, v2, epsilon = 0.3) {
   return Math.abs(v1 - v2) < epsilon;
 }
 
@@ -14,8 +14,8 @@ test('Sunlight#azimuth and altitude', t => {
   timestamp += 7 * MS_A_HOUR; // Vancouver GMT-7
 
   // https://www.wolframalpha.com/input/?i=solar+position+on+20:00+03-31-2019+at+Vancouver
-  const expectedAzimuth = [336.652, 60.228, 120.586, 214.551, 281.107];
-  const expectedAltitude = [-34.107, -18.1071, 28.7654, 39.9734, -3.69685];
+  const expectedAzimuth = [336.645, 60.2354, 120.573, 214.564, 281.106];
+  const expectedAltitude = [-34.1018, -18.1205, 28.7791, 39.9957, -3.70205];
 
   for (let i = 0; i < 5; i++) {
     const hour = i * 5;
