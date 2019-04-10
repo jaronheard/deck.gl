@@ -3,7 +3,7 @@ import CameraLight from './camera-light';
 import Effect from '../lib/effect';
 import {projectPosition} from '../shaderlib/project/project-functions';
 import {COORDINATE_SYSTEM} from '../lib';
-import {getUniformsFromViewport} from '../shaderlib/project/viewport-uniforms';
+import {getCameraPositionFromViewport} from '../shaderlib/project/viewport-uniforms';
 
 const DefaultAmbientLightProps = {color: [255, 255, 255], intensity: 1.0};
 const DefaultDirectionalLightProps = [
@@ -68,20 +68,19 @@ export default class LightingEffect extends Effect {
 
   getProjectedPointLights(layer) {
     const viewport = layer.context.viewport;
-    const {coordinateSystem, coordinateOrigin, modelMatrix} = layer.props;
+    const {coordinateSystem, coordinateOrigin} = layer.props;
     const projectedPointLights = [];
     let position;
 
     for (let i = 0; i < this.pointLights.length; i++) {
       const pointLight = this.pointLights[i];
       if (pointLight instanceof CameraLight) {
-        const {project_uCameraPosition} = getUniformsFromViewport({
+        const cameraPosition = getCameraPositionFromViewport({
           viewport,
-          modelMatrix,
           coordinateSystem,
           coordinateOrigin
         });
-        position = project_uCameraPosition;
+        position = cameraPosition;
       } else {
         position = projectPosition(pointLight.position, {
           viewport,

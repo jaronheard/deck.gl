@@ -153,6 +153,58 @@ function calculateMatrixAndOffset({
   };
 }
 
+export function getCameraPositionFromViewport({
+  viewport,
+  coordinateSystem = COORDINATE_SYSTEM.LNGLAT,
+  coordinateOrigin = DEFAULT_COORDINATE_ORIGIN
+}) {
+  const coordinateZoom = viewport.zoom;
+
+  let cameraPos = viewport.cameraPosition;
+  let shaderCoordinateSystem = getShaderCoordinateSystem(coordinateSystem);
+  let shaderCoordinateOrigin = coordinateOrigin;
+
+  if (shaderCoordinateSystem === PROJECT_COORDINATE_SYSTEM.LNGLAT_AUTO_OFFSET) {
+    if (coordinateZoom < LNGLAT_AUTO_OFFSET_ZOOM_THRESHOLD) {
+      // Use LNG_LAT projection if not zooming
+      shaderCoordinateSystem = PROJECT_COORDINATE_SYSTEM.LNG_LAT;
+    } else {
+      // Use LNGLAT_AUTO_OFFSET
+      const lng = Math.fround(viewport.longitude);
+      const lat = Math.fround(viewport.latitude);
+      shaderCoordinateOrigin = [lng, lat];
+    }
+  }
+
+  switch (shaderCoordinateSystem) {
+    case PROJECT_COORDINATE_SYSTEM.IDENTITY:
+    case PROJECT_COORDINATE_SYSTEM.LNG_LAT:
+      break;
+
+    case PROJECT_COORDINATE_SYSTEM.LNGLAT_OFFSETS:
+    case PROJECT_COORDINATE_SYSTEM.METER_OFFSETS:
+    case PROJECT_COORDINATE_SYSTEM.LNGLAT_AUTO_OFFSET:
+      // Calculate transformed projectionCenter (using 64 bit precision JS)
+      // This is the key to offset mode precision
+      // (avoids doing this addition in 32 bit precision in GLSL)
+      const positionPixels = viewport.projectFlat(
+        shaderCoordinateOrigin,
+        Math.pow(2, coordinateZoom)
+      );
+
+      cameraPos = [
+        cameraPos[0] - positionPixels[0],
+        cameraPos[1] - positionPixels[1],
+        cameraPos[2]
+      ];
+      break;
+
+    default:
+      throw new Error('Unknown projection mode');
+  }
+  return cameraPos;
+}
+
 /**
  * Returns uniforms for shaders based on current projection
  * includes: projection matrix suitable for shaders
