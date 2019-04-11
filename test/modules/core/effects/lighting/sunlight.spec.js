@@ -8,7 +8,7 @@ function almostEqual(v1, v2, epsilon = 0.3) {
   return Math.abs(v1 - v2) < epsilon;
 }
 
-test.only('Sunlight#azimuth and altitude', t => {
+test('Sunlight#azimuth and altitude', t => {
   const latitude = 49.253;
   const longitude = -123.13;
 
