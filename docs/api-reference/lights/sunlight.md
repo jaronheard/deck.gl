@@ -1,3 +1,5 @@
+# TODO need update when new light source interface arrives
+ 
 # Sunlight (Experimental)
 
 Sunlight is a directional light source simulating the sun. Sun position calculations are based on [article](http://aa.quae.nl/en/reken/zonpositie.html) and inspired by [SunCalc](https://www.npmjs.com/package/suncalc). 
@@ -11,8 +13,6 @@ import {_Sunlight as Sunlight} from '@deck.gl/core';
 
 new Sunlight({
   timestamp: 1554927200000, 
-  latitude: 49.253,
-  longitude: -122.13,
   color: [255, 0, 0],
   intensity: 1
 });
@@ -23,21 +23,13 @@ new Sunlight({
 The constructor for the `Sunlight` class. Use this to create a new `Sunlight`.
 
 ```js
-const sunlight = new Sunlight({timestamp, latitude, longitude, color, intensity});
+const sunlight = new Sunlight({timestamp, color, intensity});
 ```
 
 #### Parameters
 * `timestamp` - (*number*) - Unix timestamp in milliseconds.
-* `latitude` - (*number*) - Observer's latitude in degrees.
-* `longitude` - (*number*) - Observer's longitude in degrees.
 * `color` - (*array*)  RGB color of directional light source, default value is `[255, 255, 255]`.
 * `intensity` - (*number*) Strength of directional light source, default value is `1.0`.
-
-## Methods
-
-##### setProps
-
-Used to update `timestamp`, `latitude`, and `longitude`.
 
 ## Source
 

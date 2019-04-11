@@ -1,7 +1,7 @@
 import {DirectionalLight} from '@luma.gl/core';
 
 // sun position calculations are based on http://aa.quae.nl/en/reken/zonpositie.html formulas
-// based on https://github.com/mourner/suncalc/blob/master/suncalc.js
+// and inspired by https://github.com/mourner/suncalc/blob/master/suncalc.js
 const PI = Math.PI;
 const sin = Math.sin;
 const cos = Math.cos;
